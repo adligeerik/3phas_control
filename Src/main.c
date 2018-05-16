@@ -65,7 +65,10 @@ DMA_HandleTypeDef hdma_usart1_tx;
 osThreadId defaultTaskHandle;
 
 /* USER CODE BEGIN PV */
+#define UART_BUFFER 256
 /* Private variables ---------------------------------------------------------*/
+uint8_t DMA_RX_UART1_BUFFER[UART_BUFFER];
+uint8_t uart_command[UART_BUFFER];
 
 //sinusoidal data for 256 point
 const uint16_t PWMdata[256]={
@@ -164,6 +167,7 @@ int main(void)
   MX_TIM2_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_DMA(&huart1, DMA_RX_UART1_BUFFER, UART_BUFFER);
   HAL_TIM_Base_Start(&htim2);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
@@ -444,14 +448,36 @@ void StartDefaultTask(void const * argument)
 
   /* USER CODE BEGIN 5 */
 
+	// index for each phase (120 degrees apart)
 	int i = 0;
 	int v = 84;
 	int s = 168;
 
-  /* Infinite loop */
+
+	uint16_t bytesRx;
+	uint16_t offsetByte = 0;
+	uint16_t lastByteRx = UART_BUFFER;
+	/* Infinite loop */
   for(;;)
   {
     osDelay(1);
+
+    // Check if there is any new data received on uart
+    bytesRx = DMA1_Channel5->CNDTR;
+	if (DMA_RX_UART1_BUFFER[UART_BUFFER - bytesRx - 1] == 0x0D
+			|| DMA_RX_UART1_BUFFER[UART_BUFFER - bytesRx] == 0x0D
+			|| DMA_RX_UART1_BUFFER[UART_BUFFER - 1] == 0x0D) {
+
+		if (lastByteRx < bytesRx) {
+			for (int i = 0; i <= UART_BUFFER - offsetByte; i++) {
+				uart_command[i] = DMA_RX_UART1_BUFFER[offsetByte + i];
+			}
+			offsetByte = 0;
+		}
+		for (int i = 0; i < UART_BUFFER - bytesRx; i++) {
+			uart_command[i] = DMA_RX_UART1_BUFFER[offsetByte + i];
+		}
+	}
 	for (int j = 0; j <= 10000; j++) {
 	}
 
