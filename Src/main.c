@@ -68,6 +68,7 @@ osThreadId defaultTaskHandle;
 #define UART_BUFFER 256
 /* Private variables ---------------------------------------------------------*/
 uint8_t DMA_RX_UART1_BUFFER[UART_BUFFER];
+uint8_t DMA_TX_UART1_BUFFER[UART_BUFFER];
 uint8_t uart_command[UART_BUFFER];
 
 //sinusoidal data for 256 point
@@ -127,7 +128,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void TransmitOnUart(uint8_t *message, uint8_t lenght);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -207,36 +208,12 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int i = 0;
-  int v = 84;
-  int s = 168;
+
   while (1)
   {
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
-	  for (int j = 0;j<=10000;j++){}
-
-	  htim2.Instance->CCR4 = PWMdata2[s]/37;
-	  htim2.Instance->CCR2 = PWMdata2[v]/37;
-	  htim2.Instance->CCR3 = PWMdata2[i]/37;
-
-	  //__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, PWMdata[s]);
-	  //__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, PWMdata[v]);
-	  //__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, PWMdata[i]);
-	  i ++;
-	  v ++;
-	  s ++;
-	  if (i == 251){
-		  i = 0;
-	  }
-	  if (v == 251){
-		  v = 0;
-	  }
-	  if (s == 251){
-		  s = 0;
-	  }
 
   }
   /* USER CODE END 3 */
@@ -376,8 +353,8 @@ static void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_7B;
+  huart1.Init.BaudRate = 57600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
   huart1.Init.Mode = UART_MODE_TX_RX;
@@ -440,6 +417,16 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void TransmitOnUart(uint8_t *message,uint8_t lenght )
+{
+	for (int i = 0; i < lenght;i++){
+		DMA_TX_UART1_BUFFER[i] = message[i];
+	}
+	DMA_TX_UART1_BUFFER[lenght] = 0x0d;
+	DMA_TX_UART1_BUFFER[lenght+1] = 0x0a;
+	HAL_UART_Transmit_DMA(&huart1,DMA_TX_UART1_BUFFER, lenght+2);
+}
+
 /* USER CODE END 4 */
 
 /* StartDefaultTask function */
@@ -457,6 +444,12 @@ void StartDefaultTask(void const * argument)
 	uint16_t bytesRx;
 	uint16_t offsetByte = 0;
 	uint16_t lastByteRx = UART_BUFFER;
+	uint8_t uart_command_length = 0;
+	DMA_TX_UART1_BUFFER[0] = 0x68;
+	DMA_TX_UART1_BUFFER[1] = 0x65;
+	DMA_TX_UART1_BUFFER[2] = 0x79;
+	DMA_TX_UART1_BUFFER[3] = 0x0d;
+	DMA_TX_UART1_BUFFER[4] = 0x0a;
 	/* Infinite loop */
   for(;;)
   {
@@ -478,6 +471,25 @@ void StartDefaultTask(void const * argument)
 			uart_command[i] = DMA_RX_UART1_BUFFER[offsetByte + i];
 		}
 	}
+
+	memset(DMA_RX_UART1_BUFFER, '\0', UART_BUFFER);
+	offsetByte = UART_BUFFER - bytesRx;
+
+
+	if (!strncmp((const char *) uart_command, "hey", 3)) {
+		uint8_t message[5] = "hello";
+		uint8_t lenght = sizeof(message)/sizeof(message[0]);
+		TransmitOnUart(message, lenght);
+	}
+	uart_command[uart_command_length] = 0;
+	uart_command_length = 0;
+
+
+
+	HAL_Delay(100);
+
+	HAL_GPIO_TogglePin(GPIOB, LED1_Pin);
+
 	for (int j = 0; j <= 10000; j++) {
 	}
 
