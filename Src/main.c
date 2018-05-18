@@ -63,6 +63,7 @@ DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
 osThreadId defaultTaskHandle;
+osThreadId comunicationHandle;
 
 /* USER CODE BEGIN PV */
 #define UART_BUFFER 256
@@ -122,7 +123,8 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
-void StartDefaultTask(void const * argument);                                    
+void StartDefaultTask(void const * argument);
+void StartTask02(void const * argument);                                    
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
 
@@ -191,6 +193,10 @@ int main(void)
   /* definition and creation of defaultTask */
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of comunication */
+  osThreadDef(comunication, StartTask02, osPriorityIdle, 0, 128);
+  comunicationHandle = osThreadCreate(osThread(comunication), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -440,17 +446,52 @@ void StartDefaultTask(void const * argument)
 	int v = 84;
 	int s = 168;
 
+	/* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
 
+
+
+	HAL_GPIO_TogglePin(GPIOB, LED1_Pin);
+
+	for (int j = 0; j <= 10000; j++) {
+	}
+
+	htim2.Instance->CCR4 = PWMdata2[s] / 37;
+	htim2.Instance->CCR2 = PWMdata2[v] / 37;
+	htim2.Instance->CCR3 = PWMdata2[i] / 37;
+
+	//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, PWMdata[s]);
+	//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, PWMdata[v]);
+	//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, PWMdata[i]);
+	i++;
+	v++;
+	s++;
+	if (i == 251) {
+		i = 0;
+	}
+	if (v == 251) {
+		v = 0;
+	}
+	if (s == 251) {
+		s = 0;
+
+	}
+  }
+  /* USER CODE END 5 */ 
+}
+
+/* StartTask02 function */
+void StartTask02(void const * argument)
+{
+  /* USER CODE BEGIN StartTask02 */
 	uint16_t bytesRx;
 	uint16_t offsetByte = 0;
 	uint16_t lastByteRx = UART_BUFFER;
 	uint8_t uart_command_length = 0;
-	DMA_TX_UART1_BUFFER[0] = 0x68;
-	DMA_TX_UART1_BUFFER[1] = 0x65;
-	DMA_TX_UART1_BUFFER[2] = 0x79;
-	DMA_TX_UART1_BUFFER[3] = 0x0d;
-	DMA_TX_UART1_BUFFER[4] = 0x0a;
-	/* Infinite loop */
+
+  /* Infinite loop */
   for(;;)
   {
     osDelay(1);
@@ -483,38 +524,8 @@ void StartDefaultTask(void const * argument)
 	}
 	uart_command[uart_command_length] = 0;
 	uart_command_length = 0;
-
-
-
-	HAL_Delay(100);
-
-	HAL_GPIO_TogglePin(GPIOB, LED1_Pin);
-
-	for (int j = 0; j <= 10000; j++) {
-	}
-
-	htim2.Instance->CCR4 = PWMdata2[s] / 37;
-	htim2.Instance->CCR2 = PWMdata2[v] / 37;
-	htim2.Instance->CCR3 = PWMdata2[i] / 37;
-
-	//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, PWMdata[s]);
-	//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, PWMdata[v]);
-	//__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, PWMdata[i]);
-	i++;
-	v++;
-	s++;
-	if (i == 251) {
-		i = 0;
-	}
-	if (v == 251) {
-		v = 0;
-	}
-	if (s == 251) {
-		s = 0;
-
-	}
   }
-  /* USER CODE END 5 */ 
+  /* USER CODE END StartTask02 */
 }
 
 /**
