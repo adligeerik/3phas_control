@@ -1,14 +1,14 @@
-TODO-----------------------------
+TODO------------------------------
 Timer för interrup av ändra pwm (fas)
 implementera svm istället för lookuptable
 bygg hårdvara för hal sensor 
 skriv interface för sensor
 
-Maybe----------------------------
+Maybe-----------------------------
 Plot (live?) från sensor vinkel(, samt torque?)?
 
 
 
-Done -----------------------------
+Done ------------------------------
 UART- Recieve and transmit (wth DMA)
 Ny tråd för kommunikation
