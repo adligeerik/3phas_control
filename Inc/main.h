@@ -59,6 +59,8 @@
 
 /* Private define ------------------------------------------------------------*/
 
+#define SPI_CS_Pin GPIO_PIN_4
+#define SPI_CS_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_3
 #define LED1_GPIO_Port GPIOB
 

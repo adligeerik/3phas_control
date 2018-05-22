@@ -56,6 +56,9 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_rx;
+
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
@@ -67,10 +70,12 @@ osThreadId comunicationHandle;
 
 /* USER CODE BEGIN PV */
 #define UART_BUFFER 256
+#define SPI_BUFFER 264
 /* Private variables ---------------------------------------------------------*/
 uint8_t DMA_RX_UART1_BUFFER[UART_BUFFER];
 uint8_t DMA_TX_UART1_BUFFER[UART_BUFFER];
 uint8_t uart_command[UART_BUFFER];
+uint8_t DMA_RX_SPI1_BUFFER[SPI_BUFFER];
 
 //sinusoidal data for 256 point
 const uint16_t PWMdata[256]={
@@ -123,8 +128,10 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_SPI1_Init(void);
 void StartDefaultTask(void const * argument);
-void StartTask02(void const * argument);                                    
+void StartTask02(void const * argument);
+                                    
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
 
@@ -169,12 +176,17 @@ int main(void)
   MX_DMA_Init();
   MX_TIM2_Init();
   MX_USART1_UART_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_DMA(&huart1, DMA_RX_UART1_BUFFER, UART_BUFFER);
+  HAL_SPI_Receive_DMA(&hspi1, DMA_RX_SPI1_BUFFER, SPI_BUFFER);
+
   HAL_TIM_Base_Start(&htim2);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+
+  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -294,6 +306,32 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 15, 0);
 }
 
+/* SPI1 init function */
+static void MX_SPI1_Init(void)
+{
+
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_12BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 7;
+  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* TIM2 init function */
 static void MX_TIM2_Init(void)
 {
@@ -384,6 +422,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
@@ -410,7 +451,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LED1_Pin|GPIO_PIN_6, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : SPI_CS_Pin */
+  GPIO_InitStruct.Pin = SPI_CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin PB6 */
   GPIO_InitStruct.Pin = LED1_Pin|GPIO_PIN_6;
@@ -455,7 +506,7 @@ void StartDefaultTask(void const * argument)
 
 	HAL_GPIO_TogglePin(GPIOB, LED1_Pin);
 
-	for (int j = 0; j <= 10000; j++) {
+	for (int j = 0; j <= 5000; j++) {
 	}
 
 	htim2.Instance->CCR4 = PWMdata2[s] / 37;
@@ -491,10 +542,12 @@ void StartTask02(void const * argument)
 	uint16_t lastByteRx = UART_BUFFER;
 	uint8_t uart_command_length = 0;
 
+
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
+
 
     // Check if there is any new data received on uart
     bytesRx = DMA1_Channel5->CNDTR;
