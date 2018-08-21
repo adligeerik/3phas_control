@@ -12,3 +12,4 @@ Plot (live?) från sensor vinkel(, samt torque?)?
 Done ------------------------------
 UART- Recieve and transmit (wth DMA)
 Ny tråd för kommunikation
+
